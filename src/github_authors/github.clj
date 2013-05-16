@@ -51,7 +51,8 @@ or an oauth token."
   (github-api-call user-repos user (assoc (gh-auth) :all-pages true)))
 
 (defn average [num denom]
-  (if (zero? denom) 0 (/ num (Float. (str denom)))))
+  (format "%.2f"
+          (if (zero? denom) 0.0 (/ num (float denom)))))
 
 (defn ->repo [open closed repo]
   (let [all-issues (into open closed)
