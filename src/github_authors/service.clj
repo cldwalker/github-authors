@@ -7,7 +7,7 @@
               [io.pedestal.service.log :as log]
               [com.github.ragnard.hamelito.hiccup :as haml]
               [clojure.java.io :as io]
-              [github-authors.github :refer [stream-contributions get-in!]]
+              [github-authors.github :refer [stream-repositories get-in!]]
               [ring.util.response :as ring-resp]))
 
 (defn home-page
@@ -17,12 +17,12 @@
 
 (def ^{:doc "Map of IDs to SSE contexts"} subscribers (atom {}))
 
-(defn contributions-page
+(defn repositories-page
   "Saves sse-context for streaming."
   [sse-context]
   (if-let [id (get-in sse-context [:request :query-params :id])]
     (swap! subscribers assoc id sse-context)
-    (log/error :msg "No id passed to /contributions. Ignored.")))
+    (log/error :msg "No id passed to /repositories. Ignored.")))
 
 (defn- get-sse-context
   "If sse-context doesn't exist yet, sleep and try again. This was needed for safari and
@@ -35,20 +35,20 @@ opening a user url in a new tab."
       (Thread/sleep 500)
       (get @subscribers id))))
 
-(defn stream-contributions-page
-  "Stream contributions to the given client id."
+(defn stream-repositories-page
+  "Stream repositories to the given client id."
   [request]
   (if-let [id (get-in request [:form-params "id"])]
     (if-let [sse-context (get-sse-context id)]
-      (stream-contributions sse/send-event sse-context (get-in! request [:form-params "user"]))
+      (stream-repositories sse/send-event sse-context (get-in! request [:form-params "user"]))
       (log/error :msg (str "No sse context for id " id)))
-    (log/error :msg "No id passed to stream contributions. Ignored.")))
+    (log/error :msg "No id passed to stream repositories. Ignored.")))
 
 (defroutes routes
   [[["/"
      ^:interceptors [(body-params/body-params) bootstrap/html-body]
-     ["/contributions" {:get [::contributions (sse/start-event-stream contributions-page)]
-                        :post stream-contributions-page}]
+     ["/repositories" {:get [::repositories (sse/start-event-stream repositories-page)]
+                        :post stream-repositories-page}]
      ["/*user" {:get home-page}]]]])
 
 ;; You can use this fn or a per-request fn via io.pedestal.service.http.route/url-for

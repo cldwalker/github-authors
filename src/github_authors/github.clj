@@ -1,5 +1,5 @@
 (ns github-authors.github
-  (:require [tentacles.repos :refer [user-repos contributors specific-repo]]
+  (:require [tentacles.repos :refer [user-repos]]
             [tentacles.issues :as issues]
             [io.pedestal.service.log :as log]
             [com.github.ragnard.hamelito.hiccup :as haml]
@@ -94,7 +94,7 @@ or an oauth token."
     repo-map)))
 
 (defn- render-end-msg
-  "Build final message summarizing contributions to a user's forks."
+  "Build final message summarizing user repositories."
   [user repos]
   (format
    "<a href=\"https://github.com/%s\">%s</a> has authored %s repositories."
@@ -107,7 +107,7 @@ or an oauth token."
     (send-to "results" (render-row repo-map))
     repo-map))
 
-(defn- stream-contributions*
+(defn- stream-repositories*
   "Sends 3 different sse events (message, results, end-message) depending on
 what part of the page it's updating."
   [send-event-fn sse-context user]
@@ -123,12 +123,12 @@ what part of the page it's updating."
          (send-to "message"))
     (send-to "end-message" user)))
 
-(defn stream-contributions
-  "Streams a user's contributions with a given fn and sse-context."
+(defn stream-repositories
+  "Streams a user's repositories with a given fn and sse-context."
   [send-event-fn sse-context user]
   (if user
     (try
-      (stream-contributions* send-event-fn sse-context user)
+      (stream-repositories* send-event-fn sse-context user)
       {:status 200}
       (catch clojure.lang.ExceptionInfo exception
         (log/error :msg (str "40X response from Github: " (pr-str (ex-data exception))))
@@ -136,4 +136,4 @@ what part of the page it's updating."
                        (if (= :github-client-error (:reason (ex-data exception)))
                          (.getMessage exception)
                          "An unexpected error occurred while contacting Github. Please try again later."))))
-    (log/error :msg "No user given to fetch contributions. Ignored.")))
+    (log/error :msg "No user given to fetch repositories. Ignored.")))

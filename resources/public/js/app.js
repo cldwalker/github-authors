@@ -18,7 +18,7 @@ function initEventSource(clientId) {
     return;
   }
 
-  var es = new EventSource('/contributions?id='+clientId);
+  var es = new EventSource('/repositories?id='+clientId);
   es.addEventListener('results', function(e) {
     $("#results").append(e.data + "\n");
   });
@@ -52,19 +52,19 @@ $(function() {
     }
   });
 
-  var fetchUserContributions = function(user) {
-    $.post('/contributions', {id: clientId, user: user});
+  var fetchUserRepos = function(user) {
+    $.post('/repositories', {id: clientId, user: user});
     $('#results').show();
     $('#message').show();
     $('#message').html('Fetching repositories...');
     $('#user').val('');
     $('tbody').html('');
-    document.title = user + "'s Github Contributions"
+    document.title = user + "'s Github Repositories"
     $('h1.title').html(document.title);
   };
 
   $("form").on('submit', function(e) {
-    fetchUserContributions($("#user").val());
+    fetchUserRepos($("#user").val());
     e.preventDefault();
   });
 
@@ -72,7 +72,7 @@ $(function() {
   $('a.close').on('click', function(e) { $(e.target).parent().hide() });
 
   $('a.user').on('click', function(e) {
-    fetchUserContributions(e.target.text);
+    fetchUserRepos(e.target.text);
     e.preventDefault;
   });
 
@@ -84,7 +84,7 @@ $(function() {
   var match;
   if (match = location.pathname.match(/^\/(.+)/)) {
     // Allow time for sse to register
-    setTimeout(function() {fetchUserContributions(match[1])},
+    setTimeout(function() {fetchUserRepos(match[1])},
                500);
   } else {
     window.history.pushState({"message": '', "results": '', "title": $("h1.title").html()},
