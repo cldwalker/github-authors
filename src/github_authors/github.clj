@@ -61,6 +61,10 @@ or an oauth token."
   (clj-time.core/in-hours
    (clj-time.core/interval (clj-time.format/parse start) (clj-time.format/parse end))))
 
+(defn format-date [date]
+  (when date
+    (clj-time.format/unparse (clj-time.format/formatters :year-month-day) (clj-time.format/parse date))))
+
 (defn ->repo [open closed repo]
   (let [all-issues (into open closed)
         total (count all-issues)]
@@ -68,9 +72,9 @@ or an oauth token."
      :resolved (format "%s/%s" (count closed) total)
      :answered (format "%s/%s" (count (filter #(pos? (:comments %)) open)) (count open))
      :pull-requests (format "%s/%s" (count (filter #(get-in % [:pull_request :html_url]) all-issues)) total)
-     :last-issue-created-at (->> all-issues (sort-by :created_at) last :created_at)
+     :last-issue-created-at (format-date (->> all-issues (sort-by :created_at) last :created_at))
      :comments-average (average (->> all-issues (map :comments) (apply +)) (count all-issues))
-     :last-pushed-at (:pushed_at repo)
+     :last-pushed-at (format-date (:pushed_at repo))
      :stars (:watchers repo)
      :days-to-resolve-average (average (->> closed
                                             (map #(/ (difference-in-hours (:created_at %) (:closed_at %)) 24.0))
