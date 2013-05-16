@@ -1,12 +1,10 @@
 ## Description
 
-This app shows a github user's forks and statistics about
-their contributions to each fork. This is meant to improve on github's
-contributions tab, which is limited in scope and time frame.
-This app current only works off of a user's public information. This
-means contributions can't be detected unless a user has a fork for it.
+This app shows a github user's authored repositories. This allows you to
+interesting stats about how responsive the author is to issues, how
+many issues they've resolved, how many issues they have, etc.
 
-View the app [on heroku](https://github-authors.herokuapp.com/).
+View the app [on heroku](#TODO).
 
 ## Running the App
 
