@@ -54,6 +54,11 @@ or an oauth token."
   (format "%.2f"
           (if (zero? denom) 0.0 (/ num (float denom)))))
 
+(defn difference-in-hours
+  [start end]
+  (clj-time.core/in-hours
+   (clj-time.core/interval (clj-time.format/parse start) (clj-time.format/parse end))))
+
 (defn ->repo [open closed repo]
   (let [all-issues (into open closed)
         total (count all-issues)]
@@ -65,13 +70,10 @@ or an oauth token."
      :comments-average (average (->> all-issues (map :comments) (apply +)) (count all-issues))
      :last-pushed-at (:pushed_at repo)
      :stars (:watchers repo)
-     ;:hours (-> (clj-time.core/interval (clj-time.format/parse
-     ;"2013-04-24T18:53:00Z") (clj-time.format/parse
-     ;"2013-04-28T05:11:48Z")) clj-time.core/in-minutes (/ 60.0) (/
-                                        ;24.0))
-                                        ;:desc (:description repo)
-                                        ;:user user
-     }))
+     :days-to-resolve-average (average (->> closed
+                                            (map #(/ (difference-in-hours (:created_at %) (:closed_at %)) 24.0))
+                                            (apply +))
+                                       (count closed))}))
 
 (defn fetch-repo-info [user repo]
   (let [repo-name (get! repo :name)]
