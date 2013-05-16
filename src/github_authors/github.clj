@@ -3,6 +3,8 @@
             [tentacles.issues :as issues]
             [io.pedestal.service.log :as log]
             [com.github.ragnard.hamelito.hiccup :as haml]
+            clj-time.core
+            clj-time.format
             [clostache.parser :as clostache]))
 
 ;;; helpers
