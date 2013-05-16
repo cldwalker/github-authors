@@ -42,7 +42,8 @@ or an oauth token."
   (vec (filter seq s)))
 
 (defn fetch-issues [user repo state]
-  (filter-bug (github-api-call issues/issues user repo (assoc (gh-auth) :state state :all-pages true))))
+  (let [ret (filter-bug (github-api-call issues/issues user repo (assoc (gh-auth) :state state :all-pages true)))]
+    (if (= ret [[:message "Issues are disabled for this repo"]]) [] ret)))
 
 (defn fetch-repos
   "Fetch all public repositories for a user"
@@ -53,8 +54,7 @@ or an oauth token."
   (if (zero? denom) 0 (/ num (Float. (str denom)))))
 
 (defn ->repo [open closed repo]
-  (let [open (if (= (open [[:message "Issues are disabled for this repo"]])) [] open)
-        all-issues (into open closed)
+  (let [all-issues (into open closed)
         total (count all-issues)]
     {:full-name (:full_name repo)
      :resolved (format "%s/%s" (count closed) total)
