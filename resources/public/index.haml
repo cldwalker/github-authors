@@ -1,0 +1,47 @@
+!!!
+%html
+  %head
+    %title Contributions on Github
+    %meta(charset='utf-8')
+    %meta(name='viewport' content='width=device-width')
+    %script(src='js/jquery-2.0.0.min.js')
+    %script(src='js/app.js')
+    %link(rel='stylesheet' href='css/normalize.css')
+    %link(rel='stylesheet' href='css/foundation.min.css')
+    %link(rel='stylesheet' href='css/app.css')
+  %body
+    %nav.top-bar
+      %ul.title-area.left
+        %li.name
+          %h1
+            %a(href='https://github.com/cldwalker/github-authors') Source Code
+      %ul.left
+        %li.name
+          %h1
+            %a(href='https://github.com/cldwalker/github-authors#description') About
+    .row
+      %h1.title Contributions on Github
+    .row
+      %form
+        %label.user(for='user')
+          Github user&nbsp;
+          %span (Example:&nbsp;
+            %a.user cldwalker
+            )
+        %input(name='user' id='user')
+        %input.button.small.round(type='submit')
+    .row
+      .alert-box.alert
+        #error
+        %a.close(href='#') &times;
+    .row
+      #message.panel.large-12.columns
+    .row
+      %table#results.large-12.columns
+        %thead
+          %tr
+            %th Full name
+            %th Commits
+            %th Ranking
+            %th Description
+        %tbody
