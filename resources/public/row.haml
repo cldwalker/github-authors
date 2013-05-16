@@ -1,14 +1,11 @@
-%tr(class='{{tr-class}}')
+%tr
   %td
     %a(href='https://github.com/{{full-name}}') {{full-name}}
-    %span.fork
-      &nbsp;(
-      %a(href='https://github.com/{{fork-name}}' title='{{fork-name}}') fork
-      )
     %span.stars
       &nbsp;{{stars}} stars
-  %td
-    %a(href='https://github.com/{{full-name}}/commits?author={{user}}') {{commits}} {{commit-word}}
-  %td
-    %a(class='ranking {{ranking-class}}' href='https://github.com/{{full-name}}/contributors') {{ranking}}
-  %td {{desc}}
+  %td {{resolved}}
+  %td {{answered}}
+  %td {{pull-requests}}
+  %td {{comments-average}}
+  %td {{last-issue-created-at}}
+  %td {{last-pushed-at}}

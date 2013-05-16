@@ -1,5 +1,6 @@
 (ns github-authors.github
   (:require [tentacles.repos :refer [user-repos contributors specific-repo]]
+            [tentacles.issues :as issues]
             [io.pedestal.service.log :as log]
             [com.github.ragnard.hamelito.hiccup :as haml]
             [clostache.parser :as clostache]))
@@ -36,96 +37,85 @@ or an oauth token."
               {:reason :github-client-error :response response}))
       response)))
 
+;; filter eliminates tentacles bug, extra {} after each call
+(defn filter-bug [s]
+  (vec (filter seq s)))
+
+(defn fetch-issues [user repo state]
+  (filter-bug (github-api-call issues/issues user repo (assoc (gh-auth) :state state :all-pages true))))
+
 (defn fetch-repos
   "Fetch all public repositories for a user"
   [user]
   (github-api-call user-repos user (assoc (gh-auth) :all-pages true)))
 
-(defn fetch-contributors
-  "Wrap around a tentacles bug for the contributors endpoint where an extra {} appears at the end."
-  [user repo]
-  (let [cs (github-api-call contributors user repo (gh-auth))]
-    (if (= (last cs) {})
-      (vec (drop-last 1 cs))
-      cs)))
+(defn average [num denom]
+  (if (zero? denom) 0 (/ num (Float. (str denom)))))
 
-(defn fetch-fork-info
-  "Gathers a fork's contribution stats from fork and contributors api calls."
-  [user repo]
-  (log/info :msg (format "Fetching fork info for %s/%s" user repo))
-  (let [repo-map (github-api-call specific-repo user repo (gh-auth))
-        full-name (get-in! repo-map [:parent :full_name])
-        [_ parent-user parent-repo] (re-find #"([^/]+)/([^/]+)" full-name)
-        contribs (->> (fetch-contributors parent-user parent-repo)
-                      (sort-by :contributions)
-                      reverse
-                      (map-indexed (fn [num elem] (assoc elem :num num))))
-        contributor (some #(and (= user (:login %)) %) contribs)]
-    {:full-name full-name
-     :fork-name (:full_name repo-map)
-     :user user
-     :commits (or (:contributions contributor) 0)
-     :commit-word (if (= 1 (:contributions contributor)) "commit" "commits")
-     :tr-class (if (:contributions contributor) "contribution" "no-contribution")
-     :total-contributors (count contribs)
-     :contributor-rank (when contributor (inc (:num contributor)))
-     :stars (get-in repo-map [:parent :watchers_count])
-     :desc (get-in repo-map [:parent :description])}))
+(defn ->repo [open closed repo]
+  (let [open (if (= (open [[:message "Issues are disabled for this repo"]])) [] open)
+        all-issues (into open closed)
+        total (count all-issues)]
+    {:full-name (:full_name repo)
+     :resolved (format "%s/%s" (count closed) total)
+     :answered (format "%s/%s" (count (filter #(pos? (:comments %)) open)) (count open))
+     :pull-requests (format "%s/%s" (count (filter #(get-in % [:pull_request :html_url]) all-issues)) total)
+     :last-issue-created-at (->> all-issues (sort-by :created_at) last :created_at)
+     :comments-average (average (->> all-issues (map :comments) (apply +)) (count all-issues))
+     :last-pushed-at (:pushed_at repo)
+     :stars (:watchers repo)
+     ;:hours (-> (clj-time.core/interval (clj-time.format/parse
+     ;"2013-04-24T18:53:00Z") (clj-time.format/parse
+     ;"2013-04-28T05:11:48Z")) clj-time.core/in-minutes (/ 60.0) (/
+                                        ;24.0))
+                                        ;:desc (:description repo)
+                                        ;:user user
+     }))
+
+(defn fetch-repo-info [user repo]
+  (let [repo-name (get! repo :name)]
+    (log/info :msg (format "Fetching repo info for %s/%s" user repo-name))
+    (->repo (fetch-issues user repo-name "open")
+            (fetch-issues user repo-name "closed")
+            repo)))
 
 ;;; Cache api calls for maximum reuse. Of course, this cache only lasts
 ;;; as long as the app lives.
-(def memoized-fetch-fork-info (memoize fetch-fork-info))
+(def memoized-fetch-repo-info (memoize fetch-repo-info))
 (def memoized-fetch-repos (memoize fetch-repos))
 
-(defn rank-ending
-  "Adds an approprate string suffix to a number e.g. nd for 2nd."
-  [num]
-  (cond
-   (and (= \3 (last num)) (not= '(\1 \3) (take-last 2 num))) "rd"
-   (and (= \2 (last num)) (not= '(\1 \2) (take-last 2 num))) "nd"
-   (and (= \1 (last num)) (not= '(\1 \1) (take-last 2 num))) "st"
-   :else "th"))
-
-(defn- render-row [fork-map]
+(defn- render-row [repo-map]
   (haml/html
    (clostache/render-resource
     "public/row.haml"
-    (assoc fork-map
-      :ranking (if (:contributor-rank fork-map)
-                 (format "%s%s of %s"
-                         (:contributor-rank fork-map)
-                         (rank-ending (str (:contributor-rank fork-map)))
-                         (:total-contributors fork-map))
-                 "-")
-      :ranking-class (if-not (:contributor-rank fork-map) "hide" "")))))
+    repo-map)))
 
 (defn- render-end-msg
   "Build final message summarizing contributions to a user's forks."
-  [user forks]
+  [user repos]
   (format
-   "<a href=\"https://github.com/%s\">%s</a> has contributed to %s of %s forks."
+   "<a href=\"https://github.com/%s\">%s</a> has authored %s repositories."
    user
    user
-   (count (filter #(pos? (:commits %)) forks))
-   (count forks)))
+   (count repos)))
 
-(defn- fetch-fork-and-send-row [send-to user fork]
-  (let [fork-map (memoized-fetch-fork-info user (get! fork :name))]
-    (send-to "results" (render-row fork-map))
-    fork-map))
+(defn- fetch-repo-and-send-row [send-to user repo]
+  (let [repo-map (memoized-fetch-repo-info user repo)]
+    (send-to "results" (render-row repo-map))
+    repo-map))
 
 (defn- stream-contributions*
   "Sends 3 different sse events (message, results, end-message) depending on
 what part of the page it's updating."
   [send-event-fn sse-context user]
   (let [repos (memoized-fetch-repos user)
-        forked-repos (filter :fork repos)
+        author-repos (filter-bug (remove :fork repos))
         send-to (partial send-event-fn sse-context)]
     (send-to "message"
-             (format "%s has %s forks. Fetching data..."
-                     user (count forked-repos)))
-    (->> forked-repos
-         (mapv (partial fetch-fork-and-send-row send-to user))
+             (format "%s has %s authored repos. Fetching data..."
+                     user (count author-repos)))
+    (->> author-repos
+         (mapv (partial fetch-repo-and-send-row send-to user))
          (render-end-msg user)
          (send-to "message"))
     (send-to "end-message" user)))
