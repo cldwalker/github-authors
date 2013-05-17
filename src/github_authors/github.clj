@@ -50,7 +50,7 @@ or an oauth token."
 (defn fetch-repos
   "Fetch all public repositories for a user"
   [user]
-  (github-api-call user-repos user (assoc (gh-auth) :all-pages true)))
+  (filter-bug (github-api-call user-repos user (assoc (gh-auth) :all-pages true))))
 
 (defn average [num denom]
   (format "%.2f"
@@ -67,19 +67,24 @@ or an oauth token."
 
 (defn ->repo [open closed repo]
   (let [all-issues (into open closed)
-        total (count all-issues)]
+        total (count all-issues)
+        comments (->> all-issues (map :comments) (apply +))
+        days-to-resolve (->> closed
+                             (map #(/ (difference-in-hours (:created_at %) (:closed_at %)) 24.0))
+                             (apply +))]
     {:full-name (:full_name repo)
-     :resolved (format "%s/%s" (count closed) total)
-     :answered (format "%s/%s" (count (filter #(pos? (:comments %)) open)) (count open))
-     :pull-requests (format "%s/%s" (count (filter #(get-in % [:pull_request :html_url]) all-issues)) total)
+     :count-total total
+     :count-closed (count closed)
+     :count-open (count open)
+     :count-answered (count (filter #(pos? (:comments %)) open))
+     :count-pull-requests (count (filter #(get-in % [:pull_request :html_url]) all-issues))
+     :count-days-to-resolve days-to-resolve
+     :count-comments comments
      :last-issue-created-at (format-date (->> all-issues (sort-by :created_at) last :created_at))
-     :comments-average (average (->> all-issues (map :comments) (apply +)) (count all-issues))
+     :comments-average (average comments (count all-issues))
      :last-pushed-at (format-date (:pushed_at repo))
      :stars (:watchers repo)
-     :days-to-resolve-average (average (->> closed
-                                            (map #(/ (difference-in-hours (:created_at %) (:closed_at %)) 24.0))
-                                            (apply +))
-                                       (count closed))}))
+     :days-to-resolve-average (average days-to-resolve (count closed))}))
 
 (defn fetch-repo-info [user repo]
   (let [repo-name (get! repo :name)]
@@ -93,24 +98,41 @@ or an oauth token."
 (def memoized-fetch-repo-info (memoize fetch-repo-info))
 (def memoized-fetch-repos (memoize fetch-repos))
 
-(defn- render-row [repo-map]
+(defn- render-haml
+  [template repo-map]
   (haml/html
-   (clostache/render-resource
-    "public/row.haml"
-    repo-map)))
+   (clostache/render-resource template repo-map)))
+
+(defn calculate-total-row
+  [repos]
+  (let [active-repos (remove #(zero? (:count-total %)) repos)
+        sum #(apply + (map % active-repos))]
+    {:count-total (sum :count-total)
+     :count-closed (sum :count-closed)
+     :count-open (sum :count-open)
+     :count-answered (sum :count-answered)
+     :count-pull-requests (sum :count-pull-requests)
+     :comments-average (average (sum :count-comments) (sum :count-total))
+     :days-to-resolve-average (average (sum :count-days-to-resolve) (sum :count-closed))}))
 
 (defn- render-end-msg
   "Build final message summarizing user repositories."
-  [user repos]
-  (format
-   "<a href=\"https://github.com/%s\">%s</a> has authored %s repositories."
-   user
-   user
-   (count repos)))
+  [send-to user repos]
+  (send-to
+   "results"
+   (render-haml "public/total.haml" (calculate-total-row repos)))
+
+  (send-to
+   "message"
+   (format
+    "<a href=\"https://github.com/%s\">%s</a> has authored %s repositories."
+    user
+    user
+    (count repos))))
 
 (defn- fetch-repo-and-send-row [send-to user repo]
   (let [repo-map (memoized-fetch-repo-info user repo)]
-    (send-to "results" (render-row repo-map))
+    (send-to "results" (render-haml "public/row.haml" repo-map))
     repo-map))
 
 (defn- stream-repositories*
@@ -118,15 +140,14 @@ or an oauth token."
 what part of the page it's updating."
   [send-event-fn sse-context user]
   (let [repos (memoized-fetch-repos user)
-        author-repos (filter-bug (remove :fork repos))
+        author-repos (remove :fork repos)
         send-to (partial send-event-fn sse-context)]
     (send-to "message"
              (format "%s has %s authored repos. Fetching data..."
                      user (count author-repos)))
     (->> author-repos
          (mapv (partial fetch-repo-and-send-row send-to user))
-         (render-end-msg user)
-         (send-to "message"))
+         (render-end-msg send-to user))
     (send-to "end-message" user)))
 
 (defn stream-repositories

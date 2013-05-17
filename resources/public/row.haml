@@ -4,11 +4,11 @@
     %span.stars
       &nbsp;{{stars}} stars
   %td
-    %a(href='https://github.com/{{full-name}}/issues?state=closed') {{resolved}}
+    %a(href='https://github.com/{{full-name}}/issues?state=closed') {{count-closed}}/{{count-total}}
   %td
-    %a(href='https://github.com/{{full-name}}/issues?state=open') {{answered}}
+    %a(href='https://github.com/{{full-name}}/issues?state=open') {{count-answered}}/{{count-open}}
   %td
-    %a(href='https://github.com/{{full-name}}/pulls') {{pull-requests}}
+    %a(href='https://github.com/{{full-name}}/pulls') {{count-pull-requests}}/{{count-total}}
   %td {{days-to-resolve-average}}
   %td {{comments-average}}
   %td {{last-issue-created-at}}
