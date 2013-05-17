@@ -3,9 +3,12 @@
     %a(href='https://github.com/{{full-name}}') {{full-name}}
     %span.stars
       &nbsp;{{stars}} stars
-  %td {{resolved}}
-  %td {{answered}}
-  %td {{pull-requests}}
+  %td
+    %a(href='https://github.com/{{full-name}}/issues?state=closed') {{resolved}}
+  %td
+    %a(href='https://github.com/{{full-name}}/issues?state=open') {{answered}}
+  %td
+    %a(href='https://github.com/{{full-name}}/pulls') {{pull-requests}}
   %td {{days-to-resolve-average}}
   %td {{comments-average}}
   %td {{last-issue-created-at}}
