@@ -106,14 +106,21 @@ or an oauth token."
 (defn calculate-total-row
   [repos]
   (let [active-repos (remove #(zero? (:count-total %)) repos)
-        sum #(apply + (map % active-repos))]
-    {:count-total (sum :count-total)
-     :count-closed (sum :count-closed)
-     :count-open (sum :count-open)
-     :count-answered (sum :count-answered)
-     :count-pull-requests (sum :count-pull-requests)
-     :comments-average (average (sum :count-comments) (sum :count-total))
-     :days-to-resolve-average (average (sum :count-days-to-resolve) (sum :count-closed))}))
+        sum #(apply + (map (fn [e] (get! e %)) active-repos))
+        percent #(when (pos? %2) (Math/round (float (* 100 (/ %1 %2)))))
+        formatted-percent #(when-let [p (percent %1 %2)] (str "(" p "%)"))]
+    (as-> {:count-total (sum :count-total)
+           :count-closed (sum :count-closed)
+           :count-open (sum :count-open)
+           :count-answered (sum :count-answered)
+           :count-pull-requests (sum :count-pull-requests)
+           :comments-average (average (sum :count-comments) (sum :count-total))
+           :days-to-resolve-average (average (sum :count-days-to-resolve) (sum :count-closed))}
+          stats
+          (assoc stats
+            :percent-closed (formatted-percent (:count-closed stats) (:count-total stats))
+            :percent-answered (formatted-percent (:count-answered stats) (:count-open stats))
+            :percent-pull-requests (formatted-percent (:count-pull-requests stats) (:count-total stats))))))
 
 (defn- render-end-msg
   "Build final message summarizing user repositories."
