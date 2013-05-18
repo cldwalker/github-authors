@@ -7,7 +7,8 @@
               [io.pedestal.service.log :as log]
               [com.github.ragnard.hamelito.hiccup :as haml]
               [clojure.java.io :as io]
-              [github-authors.github :refer [stream-repositories get-in!]]
+              [github-authors.github :refer [stream-repositories]]
+              [github-authors.util :refer [get-in!]]
               [ring.util.response :as ring-resp]))
 
 (defn home-page

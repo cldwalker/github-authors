@@ -3,8 +3,7 @@
             [tentacles.issues :as issues]
             [io.pedestal.service.log :as log]
             [com.github.ragnard.hamelito.hiccup :as haml]
-            clj-time.core
-            clj-time.format
+            [github-authors.util :refer [get! average difference-in-hours format-date]]
             [clostache.parser :as clostache]))
 
 ;;; helpers
@@ -15,16 +14,6 @@ or an oauth token."
   (if-let [auth (System/getenv "GITHUB_AUTH")]
     (if (.contains auth ":") {:auth auth} {:oauth-token auth})
     (or (throw (ex-info "Set $GITHUB_AUTH to an oauth token or basic auth in order to use Github's api." {})))))
-
-(defn get-in!
-  "Fail fast if no truish value for get-in"
-  [m ks]
-  (or (get-in m ks) (throw (ex-info "No value found for nested keys in map" {:map m :keys ks}))))
-
-(defn get!
-  "Fail fast if no truish value for get"
-  [m k]
-  (or (get m k) (throw (ex-info "No value found for key in map" {:map m :key k}))))
 
 ;;; API calls
 (defn- github-api-call
@@ -51,19 +40,6 @@ or an oauth token."
   "Fetch all public repositories for a user"
   [user]
   (filter-bug (github-api-call user-repos user (assoc (gh-auth) :all-pages true))))
-
-(defn average [num denom]
-  (format "%.2f"
-          (if (zero? denom) 0.0 (/ num (float denom)))))
-
-(defn difference-in-hours
-  [start end]
-  (clj-time.core/in-hours
-   (clj-time.core/interval (clj-time.format/parse start) (clj-time.format/parse end))))
-
-(defn format-date [date]
-  (when date
-    (clj-time.format/unparse (clj-time.format/formatters :year-month-day) (clj-time.format/parse date))))
 
 (defn ->repo [open closed repo]
   (let [all-issues (into open closed)
