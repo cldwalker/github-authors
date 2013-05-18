@@ -142,12 +142,20 @@ or an oauth token."
     (send-to "results" (render-haml "public/row.haml" repo-map))
     repo-map))
 
+;; Criteria for this could vary per user but it works for my forks
+;; A better version would compare fork vs original pushed_at dates
+;; but that require's an extra repo call per repository which is too expensive
+(defn- active-forks [forks]
+  (filter
+   #(or (> (:watchers %) 2) (some-> (:open_issues %) pos?))
+   forks))
+
 (defn- stream-repositories*
   "Sends 3 different sse events (message, results, end-message) depending on
 what part of the page it's updating."
   [send-event-fn sse-context user]
   (let [repos (memoized-fetch-repos user)
-        author-repos (remove :fork repos)
+        author-repos (sort-by :name (concat (remove :fork repos) (active-forks (filter :fork repos))))
         send-to (partial send-event-fn sse-context)]
     (send-to "message"
              (format "%s has %s authored repos. Fetching data..."
