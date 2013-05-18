@@ -97,7 +97,7 @@ or an oauth token."
   (specific-repo user repo (gh-auth)))
 
 (defn- active-forks
-  "Calculates active forks that tries to be accurate while minimizing number of api calls."
+  "Filters active forks while trying to be accurate and minimizing number of api calls."
   [user forks]
   (->> forks
        (filter
