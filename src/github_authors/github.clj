@@ -1,5 +1,5 @@
 (ns github-authors.github
-  (:require [tentacles.repos :refer [user-repos]]
+  (:require [tentacles.repos :refer [user-repos specific-repo]]
             [tentacles.issues :as issues]
             [io.pedestal.service.log :as log]
             [com.github.ragnard.hamelito.hiccup :as haml]
@@ -93,10 +93,32 @@ or an oauth token."
             (fetch-issues user repo-name "closed")
             repo)))
 
+(defn- fetch-specific-repo [user repo]
+  (specific-repo user repo (gh-auth)))
+
+(defn- active-forks
+  "Calculates active forks that tries to be accurate while minimizing number of api calls."
+  [user forks]
+  (->> forks
+       (filter
+        #(or (> (:watchers %) 1) (some-> (:open_issues %) pos?)))
+       (filter
+        #(let [repo (fetch-specific-repo user (:name %))]
+           (or (not= (:name repo) (get-in repo [:parent :name]))
+               ;; compare correctly handles these timestamps e.g. "2013-04-19T00:42:18Z"
+               ((comp pos? compare) (:pushed_at repo) (get-in repo [:parent :pushed_at])))))))
+
+(defn fetch-authored-repos-and-active-forks
+  [user]
+  (as-> (fetch-repos user)
+        repos
+        (sort-by :name (concat (remove :fork repos) (active-forks user (filter :fork repos))))))
+
+
 ;;; Cache api calls for maximum reuse. Of course, this cache only lasts
 ;;; as long as the app lives.
 (def memoized-fetch-repo-info (memoize fetch-repo-info))
-(def memoized-fetch-repos (memoize fetch-repos))
+(def memoized-fetch-authored-repos-and-active-forks (memoize fetch-authored-repos-and-active-forks))
 
 (defn- render-haml
   [template repo-map]
@@ -142,25 +164,16 @@ or an oauth token."
     (send-to "results" (render-haml "public/row.haml" repo-map))
     repo-map))
 
-;; Criteria for this could vary per user but it works for my forks
-;; A better version would compare fork vs original pushed_at dates
-;; but that require's an extra repo call per repository which is too expensive
-(defn- active-forks [forks]
-  (filter
-   #(or (> (:watchers %) 2) (some-> (:open_issues %) pos?))
-   forks))
-
 (defn- stream-repositories*
   "Sends 3 different sse events (message, results, end-message) depending on
 what part of the page it's updating."
   [send-event-fn sse-context user]
-  (let [repos (memoized-fetch-repos user)
-        author-repos (sort-by :name (concat (remove :fork repos) (active-forks (filter :fork repos))))
+  (let [active-repos (memoized-fetch-authored-repos-and-active-forks user)
         send-to (partial send-event-fn sse-context)]
     (send-to "message"
              (format "%s has %s authored repos. Fetching data..."
-                     user (count author-repos)))
-    (->> author-repos
+                     user (count active-repos)))
+    (->> active-repos
          (mapv (partial fetch-repo-and-send-row send-to user))
          (render-end-msg send-to user))
     (send-to "end-message" user)))
