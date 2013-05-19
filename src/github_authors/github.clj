@@ -179,5 +179,8 @@ what part of the page it's updating."
         (send-event-fn sse-context "error"
                        (if (= :github-client-error (:reason (ex-data exception)))
                          (.getMessage exception)
-                         "An unexpected error occurred while contacting Github. Please try again later."))))
+                         "An unexpected error occurred while contacting Github. Please try again later.")))
+      (catch Exception exception
+        (log/error :msg (str "Unexpected error: " exception))
+        (send-event-fn sse-context "error" "An unexpected error occurred. :(")))
     (log/error :msg "No user given to fetch repositories. Ignored.")))
