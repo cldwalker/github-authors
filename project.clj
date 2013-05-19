@@ -22,7 +22,7 @@
                  [org.slf4j/jcl-over-slf4j "1.7.2"]
                  [org.slf4j/log4j-over-slf4j "1.7.2"]]
   :profiles {:dev {:source-paths ["dev"]
-                   :dependencies [[org.clojars.runa/conjure "2.1.3"]]}}
+                   :dependencies [[bond "0.2.5"]]}}
   :min-lein-version "2.0.0"
   :resource-paths ["config", "resources"]
   :main ^{:skip-aot true} github-authors.server)
