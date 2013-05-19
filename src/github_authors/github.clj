@@ -28,11 +28,15 @@ or an oauth token."
               {:reason :github-client-error :response response}))
       response)))
 
-;; filter eliminates tentacles bug, extra {} after each call
-(defn filter-bug [s]
+
+(defn- filter-bug
+  "Eliminates tentacles bug, extra {} after each call"
+  [s]
   (vec (filter seq s)))
 
-(defn fetch-issues [user repo state]
+(defn fetch-issues
+  "Fetches a public repo's issues by state (closed or open). Returns [] if issues are disabled."
+  [user repo state]
   (let [ret (filter-bug (github-api-call issues/issues user repo (assoc (gh-auth) :state state :all-pages true)))]
     (if (= ret [[:message "Issues are disabled for this repo"]]) [] ret)))
 
@@ -41,7 +45,9 @@ or an oauth token."
   [user]
   (filter-bug (github-api-call user-repos user (assoc (gh-auth) :all-pages true))))
 
-(defn ->repo [open closed repo]
+(defn ->repo
+  "Calculates repo stats given api responses from open issues, closed issues and repo itself"
+  [open closed repo]
   (let [all-issues (into open closed)
         total (count all-issues)
         comments (->> all-issues (map :comments) (apply +))
@@ -62,7 +68,9 @@ or an oauth token."
      :stars (:watchers repo)
      :days-to-resolve-average (average days-to-resolve (count closed))}))
 
-(defn fetch-repo-info [user repo]
+(defn fetch-repo-info
+  "Fetches a repo's issues and extracts interesting stats from them"
+  [user repo]
   (let [repo-name (get! repo :name)]
     (log/info :msg (format "Fetching repo info for %s/%s" user repo-name))
     (->repo (fetch-issues user repo-name "open")
@@ -85,6 +93,7 @@ or an oauth token."
                ((comp pos? compare) (:pushed_at repo) (get-in repo [:parent :pushed_at])))))))
 
 (defn fetch-authored-repos-and-active-forks
+  "Fetches a user's authored repos and active forks"
   [user]
   (as-> (fetch-repos user)
         repos
@@ -102,6 +111,7 @@ or an oauth token."
    (clostache/render-resource template repo-map)))
 
 (defn calculate-total-row
+  "Calculates total stats from stats collected from all repos."
   [repos]
   (let [active-repos (remove #(zero? (:count-total %)) repos)
         sum #(apply + (map (fn [e] (get! e %)) active-repos))
@@ -120,8 +130,8 @@ or an oauth token."
             :percent-answered (formatted-percent (:count-answered stats) (:count-open stats))
             :percent-pull-requests (formatted-percent (:count-pull-requests stats) (:count-total stats))))))
 
-(defn- render-end-msg
-  "Build final message summarizing user repositories."
+(defn- sends-final-events
+  "Sends a results event containing total row and message event summarizing user repositories."
   [send-to user repos]
   (send-to
    "results"
@@ -151,7 +161,7 @@ what part of the page it's updating."
                      user (count active-repos)))
     (->> active-repos
          (mapv (partial fetch-repo-and-send-row send-to user))
-         (render-end-msg send-to user))
+         (sends-final-events send-to user))
     (send-to "end-message" user)))
 
 (defn stream-repositories
