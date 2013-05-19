@@ -160,7 +160,7 @@ what part of the page it's updating."
   (let [active-repos (memoized-fetch-authored-repos-and-active-forks user)
         send-to (partial send-event-fn sse-context)]
     (send-to "message"
-             (format "%s has %s repositories. Fetching data..."
+             (format "%s has %s repositories. Fetching data... <img src='/images/spinner.gif' />"
                      user (count active-repos)))
     (->> active-repos
          (mapv (partial fetch-repo-and-send-row send-to user))
