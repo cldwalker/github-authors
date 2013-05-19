@@ -55,6 +55,7 @@ or an oauth token."
                              (map #(/ (difference-in-hours (:created_at %) (:closed_at %)) 24.0))
                              (apply +))]
     {:full-name (:full_name repo)
+     :fork (:fork repo)
      :count-total total
      :count-closed (count closed)
      :count-open (count open)
@@ -140,10 +141,12 @@ or an oauth token."
   (send-to
    "message"
    (format
-    "<a href=\"https://github.com/%s\">%s</a> has authored %s repositories. See their <a href=\"#total-stats\">total stats</a>."
+    "<a href=\"https://github.com/%s\">%s</a> has %s repositories: %s are authored and %s are active forks. See <a href=\"#total-stats\">their stats</a>."
     user
     user
-    (count repos))))
+    (count repos)
+    (count (remove :fork repos))
+    (count (filter :fork repos)))))
 
 (defn- fetch-repo-and-send-row [send-to user repo]
   (let [repo-map (memoized-fetch-repo-info user repo)]
@@ -157,7 +160,7 @@ what part of the page it's updating."
   (let [active-repos (memoized-fetch-authored-repos-and-active-forks user)
         send-to (partial send-event-fn sse-context)]
     (send-to "message"
-             (format "%s has %s authored repos. Fetching data..."
+             (format "%s has %s repositories. Fetching data..."
                      user (count active-repos)))
     (->> active-repos
          (mapv (partial fetch-repo-and-send-row send-to user))
