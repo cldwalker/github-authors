@@ -3,6 +3,7 @@
             [github-authors.service :as service]
             [bond.james :as bond :refer [with-spy]]
             [tentacles.repos :as repos]
+            [tentacles.issues :as issues]
             [github-authors.fixtures :as fixtures]
             [github-authors.test-helper :as test-helper]
             [github-authors.github :as github]))
@@ -17,7 +18,10 @@
 
 (defn verify-args-called-for [f & expected-args]
   (doseq [[expected actual] (map vector expected-args (->> f bond/calls (map :args)))]
-    (is (= expected actual))))
+    (if (instance? java.util.regex.Pattern (last expected))
+      (is (and (= (butlast expected) (butlast actual)) (re-find (last expected) (last actual)))
+          (str "Expected: " (last expected)))
+      (is (= expected actual)))))
 
 (deftest stream-repositories-receives-403-from-github
   []
@@ -27,7 +31,7 @@
       (stream-repositories)
       (verify-args-called-for
        send-event-fn
-       [sse-context "error" "Rate limit has been exceeded for Github's API. Please try again later."]))))
+       [sse-context "error" #"^Rate limit has been exceeded"]))))
 
 (deftest stream-repositories-receives-404-from-github
   []
@@ -39,21 +43,19 @@
        send-event-fn
        [sse-context "error" "Received a 404 from Github. Please try again later."]))))
 
-;; because conjure only supports =
-(def expected-row
-  "<tr class=\"contribution\"><td><a href=\"https://github.com/ajaxorg/ace\">ajaxorg/ace</a><span class=\"fork\">&nbsp;(<a href=\"https://github.com/defunkt/ace\" title=\"defunkt/ace\">fork</a>)</span><span class=\"stars\">&nbsp;5188 stars</span></td><td><a href=\"https://github.com/ajaxorg/ace/commits?author=defunkt\">5 commits</a></td><td><a class=\"ranking \" href=\"https://github.com/ajaxorg/ace/contributors\">1st of 2</a></td><td>Ajax.org Cloud9 Editor</td></tr>")
-
-#_(deftest stream-repositories-receives-200s-from-github
+(deftest stream-repositories-receives-200s-from-github
   []
   (with-redefs [repos/user-repos (constantly fixtures/response-user-repos)
                 repos/specific-repo (constantly fixtures/response-specific-repo)
-                repos/contributors (constantly fixtures/response-contributors)
+                issues/issues (constantly fixtures/no-issues)
                 github/gh-auth (constantly {})]
-    (mocking [send-event-fn]
+    (with-spy [send-event-fn]
              (stream-repositories)
-             (verify-nth-call-args-for 1 send-event-fn sse-context "message"
-                                       "defunkt has 1 forks. Fetching data...")
-             (verify-nth-call-args-for 2 send-event-fn sse-context "results" expected-row)
-             (verify-nth-call-args-for 3 send-event-fn sse-context "message"
-                                       "<a href=\"https://github.com/defunkt\">defunkt</a> has contributed to 1 of 1 forks.")
-             (verify-nth-call-args-for 4 send-event-fn sse-context "end-message" "defunkt"))))
+             (verify-args-called-for
+              send-event-fn
+              [sse-context "message" #"^defunkt has 2 repositories. Fetching data"]
+              [sse-context "results" #"^<tr>.*https://github.com/defunkt/ace.*11 stars"]
+              [sse-context "results" #"^<tr>.*https://github.com/defunkt/acts_as_textiled.*118 stars"]
+              [sse-context "results" #"total-stats.*Total"]
+              [sse-context "message" #"has 2 repositories: 1 are authored and 1 are active forks"]
+              [sse-context "end-message" "defunkt"]))))
