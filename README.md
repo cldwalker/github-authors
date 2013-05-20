@@ -5,7 +5,7 @@ forks](#active-forks). This allows you to see interesting stats about
 how responsive the author is to issues, how many issues they've
 resolved, how many issues they have, etc.
 
-View the app [on heroku](#TODO).
+View the app [on heroku](https://github-authors.herokuapp.com).
 
 ## Running the App
 
