@@ -141,7 +141,7 @@ or an oauth token."
   (send-to
    "message"
    (format
-    "<a href=\"https://github.com/%s\">%s</a> has %s repositories: %s are authored and %s are active forks. See <a href=\"#total-stats\">their stats</a>."
+    "<a href=\"https://github.com/%s\">%s</a> has %s repositories: %s are authored and %s are active forks. <a href=\"#total-stats\">Their stats</a> are below."
     user
     user
     (count repos)
