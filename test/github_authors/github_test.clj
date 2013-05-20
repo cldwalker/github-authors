@@ -22,8 +22,7 @@
 (defn verify-args-called-for [f & expected-args]
   (doseq [[expected actual] (map vector expected-args (->> f bond/calls (map :args)))]
     (if (instance? java.util.regex.Pattern (last expected))
-      (is (and (= (butlast expected) (butlast actual)) (re-find (last expected) (last actual)))
-          (str "Expected: " (last expected)))
+      (is (and (= (butlast expected) (butlast actual)) (re-find (last expected) (last actual))))
       (is (= expected actual)))))
 
 (deftest stream-repositories-receives-403-from-github
