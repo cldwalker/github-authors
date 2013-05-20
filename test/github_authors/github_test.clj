@@ -13,8 +13,11 @@
 
 (defn stream-repositories
   []
-  (test-helper/disallow-web-requests!
-   (github/stream-repositories send-event-fn sse-context "defunkt")))
+  ;; we don't want to memoize during tests
+  (with-redefs [github/memoized-fetch-repo-info github/fetch-repo-info
+                github/memoized-fetch-authored-repos-and-active-forks github/fetch-authored-repos-and-active-forks]
+    (test-helper/disallow-web-requests!
+     (github/stream-repositories send-event-fn sse-context "defunkt"))))
 
 (defn verify-args-called-for [f & expected-args]
   (doseq [[expected actual] (map vector expected-args (->> f bond/calls (map :args)))]
