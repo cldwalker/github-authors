@@ -26,7 +26,6 @@
       (is (= expected actual)))))
 
 (deftest stream-repositories-receives-403-from-github
-  []
   (with-redefs [repos/user-repos (constantly fixtures/response-403)
                 github/gh-auth (constantly {})]
     (with-spy [send-event-fn]
@@ -36,7 +35,6 @@
        [sse-context "error" #"^Rate limit has been exceeded"]))))
 
 (deftest stream-repositories-receives-404-from-github
-  []
   (with-redefs [repos/user-repos (constantly fixtures/response-404)
                 github/gh-auth (constantly {})]
     (with-spy [send-event-fn]
@@ -46,7 +44,6 @@
        [sse-context "error" "Received a 404 from Github. Please try again later."]))))
 
 (deftest stream-repositories-receives-200s-from-github
-  []
   (with-redefs [repos/user-repos (constantly fixtures/response-user-repos)
                 repos/specific-repo (constantly fixtures/response-specific-repo)
                 issues/issues (constantly fixtures/no-issues)
