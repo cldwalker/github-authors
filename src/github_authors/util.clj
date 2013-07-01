@@ -21,7 +21,7 @@
           (if (zero? denom) 0.0 (/ num (float denom)))))
 
 (defn difference-in-hours
-  "Returns the difference in hours between two timestamp sttrings, rounded to the nearest integer"
+  "Returns the difference in hours between two timestamp strings, rounded to the nearest integer"
   [start end]
   (clj-time.core/in-hours
    (clj-time.core/interval (clj-time.format/parse start) (clj-time.format/parse end))))
